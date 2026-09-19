@@ -116,8 +116,9 @@ class DiscordChannelHandler(logging.Handler):
     async def _send(self, embed: discord.Embed) -> None:
         try:
             channel = self.client.get_channel(self.channel_id)
-            if channel is not None:
-                await channel.send(embed=embed)
+            if channel is None:
+                channel = await self.client.fetch_channel(self.channel_id)
+            await channel.send(embed=embed)
         except Exception:
             logging.getLogger("vacnet.discord").exception("Unable to send log to Discord channel")
 

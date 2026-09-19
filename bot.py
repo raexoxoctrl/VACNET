@@ -15,7 +15,7 @@ from discord import app_commands
 
 from app.config import Settings
 from app.git_manager import GitManager
-from app.logger_setup import LOG_STREAMS, read_log_lines, setup_logger
+from app.logger_setup import LOG_DIR, LOG_STREAMS, read_log_lines, setup_logger
 from app.update_manager import UpdateManager
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -60,6 +60,7 @@ class VacnetBot(discord.Client):
         self.update_manager = UpdateManager(ROOT_DIR, self.update_logger, settings)
         self.started_at = datetime.now(timezone.utc)
         self.tunnel_url_task: asyncio.Task | None = None
+        self.discord_log_task: asyncio.Task | None = None
 
     async def setup_hook(self) -> None:
         await self.tree.sync()
@@ -82,6 +83,8 @@ async def on_ready() -> None:
     client.logger.info("Git commit: %s", client.git.get_current_commit())
     if client.tunnel_url_task is None or client.tunnel_url_task.done():
         client.tunnel_url_task = asyncio.create_task(watch_tunnel_url())
+    if client.discord_log_task is None or client.discord_log_task.done():
+        client.discord_log_task = asyncio.create_task(forward_all_logs())
 
 
 async def watch_tunnel_url() -> None:
@@ -99,6 +102,37 @@ async def watch_tunnel_url() -> None:
         except Exception:
             client.logger.exception("Unable to read dashboard tunnel state")
         await asyncio.sleep(5)
+
+
+async def forward_all_logs() -> None:
+    path = LOG_DIR / LOG_STREAMS["all"]
+    channel_id = client.settings.bot_log_channel_id
+    if not channel_id:
+        client.logger.error("All logs cannot be forwarded: BOT_LOG_CHANNEL_ID is not configured.")
+        return
+
+    offset = path.stat().st_size if path.exists() else 0
+    while not client.is_closed():
+        try:
+            channel = client.get_channel(int(channel_id))
+            if channel is None:
+                channel = await client.fetch_channel(int(channel_id))
+            if path.exists():
+                size = path.stat().st_size
+                if size < offset:
+                    offset = 0
+                if size > offset:
+                    with path.open("r", encoding="utf-8", errors="replace") as log_file:
+                        log_file.seek(offset)
+                        new_text = log_file.read()
+                        offset = log_file.tell()
+                    for chunk_start in range(0, len(new_text), 1900):
+                        chunk = new_text[chunk_start:chunk_start + 1900].strip()
+                        if chunk:
+                            await channel.send(f"```text\n{chunk}\n```")
+        except Exception:
+            client.logger.exception("Unable to forward all logs to Discord; retrying")
+        await asyncio.sleep(2)
 
 
 async def announce_tunnel_url(url: str) -> None:
@@ -162,10 +196,8 @@ async def execute_command(interaction: discord.Interaction) -> None:
         environment = os.environ.copy()
         environment["VACNET_NONINTERACTIVE"] = "1"
         process = await asyncio.create_subprocess_exec(
-            "cmd.exe",
-            "/d",
-            "/c",
-            str(RUN_SCRIPT_PATH),
+            sys.executable,
+            str(SCRIPT_PATH),
             cwd=str(ROOT_DIR),
             env=environment,
             stdout=asyncio.subprocess.PIPE,
