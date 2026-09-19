@@ -34,13 +34,20 @@ class GitManager:
     def pull_latest(self, branch: str) -> str:
         self.ensure_repo()
         self.run_git("fetch", "origin", branch)
-        result = self.run_git("pull", "--ff-only", "origin", branch)
+        self.logger.warning("Overwriting local repository files with origin/%s.", branch)
+        self.run_git("checkout", "-B", branch, f"origin/{branch}")
+        self.run_git("reset", "--hard", f"origin/{branch}")
+        self.run_git("clean", "-fd")
+        return self.git_head_message(branch)
+
+    def git_head_message(self, branch: str) -> str:
+        result = self.run_git("log", "-1", "--oneline", f"origin/{branch}")
         return result.stdout.strip()
 
     def backup_current_state(self, label: str) -> str:
         self.ensure_repo()
         backup_name = f"backup/{label}"
-        self.run_git("branch", backup_name)
+        self.run_git("branch", "-f", backup_name)
         return backup_name
 
     def rollback_to_backup(self, backup_name: str) -> str:

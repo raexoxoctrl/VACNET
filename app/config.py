@@ -20,6 +20,7 @@ class Settings:
     log_level: str = "INFO"
     bot_log_channel_id: str | None = None
     script_log_channel_id: str | None = None
+    discord_webhook_url: str | None = None
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -31,6 +32,7 @@ class Settings:
         allowed_ids = tuple(item.strip() for item in raw_allowed.split(",") if item.strip())
         bot_log_channel_id = (os.getenv("BOT_LOG_CHANNEL_ID") or "").strip() or None
         script_log_channel_id = (os.getenv("SCRIPT_LOG_CHANNEL_ID") or "").strip() or None
+        discord_webhook_url = (os.getenv("DISCORD_WEBHOOK_URL") or "").strip() or None
 
         if not token:
             raise ValueError("DISCORD_TOKEN is not set. Add it to your .env file.")
@@ -47,4 +49,5 @@ class Settings:
             log_level=log_level,
             bot_log_channel_id=bot_log_channel_id,
             script_log_channel_id=script_log_channel_id,
+            discord_webhook_url=discord_webhook_url,
         )

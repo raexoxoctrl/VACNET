@@ -7,7 +7,7 @@ The current implementation includes:
 - A persistent supervisor that launches and monitors the bot process
 - Git-based self-updating behavior from a configured GitHub repository
 - Strict admin restrictions by Discord user ID
-- Logging and safe rollback handling for failed updates
+- File, console, channel, and webhook logging with safe rollback handling for failed updates
 - A modular structure so you can replace the temporary `/execute` command later with your real Immich or image-server startup logic
 
 ## Project structure
@@ -73,6 +73,7 @@ Update the following keys in `.env`:
 - `GIT_REPO_URL`
 - `GIT_BRANCH`
 - `LOG_LEVEL`
+- `DISCORD_WEBHOOK_URL` — optional Discord webhook for all bot and supervisor logs
 
 4. Or use the root installer, which performs the environment and dependency setup:
 
@@ -107,9 +108,13 @@ Then keep `.env` local and do not commit it. The bot reads secrets from `.env` o
 
 ## Bot commands
 
-- `/status` — shows whether the bot/application is running and the current Git commit/version
+- `/status` — shows detailed bot uptime, process, Python, Git, script, and supervisor status
 - `/execute` — temporarily opens a Windows `cmd.exe` and prints `hello`
-- `/update` — pulls the repository, installs dependencies, and restarts the bot safely
+- `/update` — overwrites the local checkout with the configured remote branch, removes non-ignored untracked files, installs dependencies, and restarts the bot
+- `/restart` — restarts the bot through the supervisor
+- `/shutdown` — stops VACNET without the supervisor immediately restarting it
+- `/fetchscript` — sends the current `exes/script.py` to Discord
+- `/updatescript <link>` — downloads an HTTPS Python script, syntax-checks it, and activates it atomically
 - `/logs` — shows recent log content
 
 Administrative commands are restricted to user IDs listed in `ALLOWED_USER_IDS`.
@@ -127,7 +132,9 @@ This gives you a practical rollback path without risking a broken update loop.
 
 ## Logging
 
-Logs are written to `logs/vacnet.log` and include command execution, updates, restarts, Git operations, and errors.
+Logs are written to `logs/vacnet.log` and include command execution, updates, restarts, Git operations, and errors. When `DISCORD_WEBHOOK_URL` is set, the same entries are also sent to the webhook. Existing channel logging remains available through `BOT_LOG_CHANNEL_ID` and `SCRIPT_LOG_CHANNEL_ID`.
+
+Script updates are restricted to administrator IDs and HTTPS URLs. The downloaded file must compile as Python before it replaces the current script. The repository update is intentionally destructive: it resets tracked files to the configured remote branch and removes non-ignored untracked files before reinstalling dependencies. Ignored runtime files such as `.env`, `.venv`, and logs are preserved.
 
 ## Important security notes
 

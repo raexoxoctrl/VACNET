@@ -4,6 +4,8 @@ import asyncio
 import logging
 from pathlib import Path
 
+import aiohttp
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 LOG_DIR = ROOT_DIR / "logs"
 LOG_FILE = LOG_DIR / "vacnet.log"
@@ -31,12 +33,41 @@ class DiscordChannelHandler(logging.Handler):
             asyncio.run(channel.send(message[:2000]))
 
 
+class DiscordWebhookHandler(logging.Handler):
+    def __init__(self, webhook_url: str, level: int = logging.INFO):
+        super().__init__(level=level)
+        self.webhook_url = webhook_url
+
+    async def _send(self, message: str) -> None:
+        try:
+            timeout = aiohttp.ClientTimeout(total=10)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(self.webhook_url, json={"content": message[:2000]}) as response:
+                    if response.status >= 300:
+                        logging.getLogger("vacnet.webhook").error(
+                            "Discord webhook returned HTTP %s", response.status
+                        )
+        except Exception:
+            logging.getLogger("vacnet.webhook").exception("Unable to send log to Discord webhook")
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._send(self.format(record)))
+        except RuntimeError:
+            try:
+                asyncio.run(self._send(self.format(record)))
+            except RuntimeError:
+                return
+
+
 def setup_logger(
     name: str = "vacnet",
     level: int = logging.INFO,
     *,
     client=None,
     discord_channel_id: str | int | None = None,
+    discord_webhook_url: str | None = None,
 ) -> logging.Logger:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     logger = logging.getLogger(name)
@@ -65,5 +96,10 @@ def setup_logger(
         channel_handler = DiscordChannelHandler(client, discord_channel_id, level)
         channel_handler.setFormatter(formatter)
         logger.addHandler(channel_handler)
+
+    if discord_webhook_url:
+        webhook_handler = DiscordWebhookHandler(discord_webhook_url, level)
+        webhook_handler.setFormatter(formatter)
+        logger.addHandler(webhook_handler)
 
     return logger

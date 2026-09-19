@@ -14,13 +14,18 @@ from app.logger_setup import setup_logger
 from app.update_manager import UpdateManager
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
+SHUTDOWN_MARKER = ROOT_DIR / ".vacnet_shutdown"
 
 
 class Supervisor:
     def __init__(self, repo_root: Path, settings: Settings):
         self.repo_root = Path(repo_root)
         self.settings = settings
-        self.logger = setup_logger("vacnet.supervisor", level=getattr(__import__("logging"), settings.log_level.upper(), __import__("logging").INFO))
+        self.logger = setup_logger(
+            "vacnet.supervisor",
+            level=getattr(__import__("logging"), settings.log_level.upper(), __import__("logging").INFO),
+            discord_webhook_url=settings.discord_webhook_url,
+        )
         self.launcher = Launcher(self.repo_root, self.logger)
         self.bot_process: subprocess.Popen | None = None
         self._lock = threading.Lock()
@@ -75,9 +80,15 @@ def main() -> None:
     logger.info("Repository root: %s", ROOT_DIR)
 
     try:
+        SHUTDOWN_MARKER.unlink(missing_ok=True)
         supervisor.start_bot_process()
         while True:
             time.sleep(5)
+            if SHUTDOWN_MARKER.exists():
+                logger.info("Shutdown requested by Discord command.")
+                SHUTDOWN_MARKER.unlink(missing_ok=True)
+                supervisor.stop_bot_process()
+                return
             if supervisor.bot_process and supervisor.bot_process.poll() is not None:
                 logger.warning("Bot process exited unexpectedly. Restarting.")
                 supervisor.start_bot_process()
