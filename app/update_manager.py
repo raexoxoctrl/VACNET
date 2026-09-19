@@ -43,6 +43,7 @@ class UpdateManager:
     def update_and_restart(self) -> dict:
         self.logger.info("Starting update process.")
         backup_name = None
+        original_branch = self.git.get_current_branch()
         try:
             self.git.ensure_repo()
             backup_name = self.git.backup_current_state("pre-update")
@@ -58,8 +59,8 @@ class UpdateManager:
             if backup_name:
                 try:
                     self.logger.warning("Attempting rollback to backup: %s", backup_name)
-                    self.git.rollback_to_backup(backup_name)
-                    self.logger.warning("Rollback succeeded.")
+                    self.git.rollback_to_backup(backup_name, original_branch)
+                    self.logger.warning("Rollback succeeded on branch %s.", original_branch)
                 except Exception as rollback_exc:
                     self.logger.exception("Rollback failed: %s", rollback_exc)
             return {"status": "failed", "error": str(exc), "backup": backup_name}

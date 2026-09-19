@@ -14,6 +14,6 @@ set "EXIT_CODE=%ERRORLEVEL%"
 if errorlevel 1 (
     echo.
     echo VACNET script stopped with an error.
-    pause
+    if not defined VACNET_NONINTERACTIVE pause
 )
 exit /b %EXIT_CODE%

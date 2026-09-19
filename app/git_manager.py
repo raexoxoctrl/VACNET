@@ -31,6 +31,10 @@ class GitManager:
         result = self.run_git("rev-parse", "--short", "HEAD")
         return result.stdout.strip() or "unknown"
 
+    def get_current_branch(self) -> str:
+        result = self.run_git("branch", "--show-current")
+        return result.stdout.strip() or "main"
+
     def pull_latest(self, branch: str) -> str:
         self.ensure_repo()
         self.run_git("fetch", "origin", branch)
@@ -50,8 +54,8 @@ class GitManager:
         self.run_git("branch", "-f", backup_name)
         return backup_name
 
-    def rollback_to_backup(self, backup_name: str) -> str:
+    def rollback_to_backup(self, backup_name: str, branch: str = "main") -> str:
         self.ensure_repo()
-        self.run_git("checkout", backup_name)
+        self.run_git("checkout", branch)
         self.run_git("reset", "--hard", backup_name)
         return backup_name
