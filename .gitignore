@@ -12,3 +12,4 @@ data/*
 .vscode/
 .DS_Store
 *.log
+logs/*

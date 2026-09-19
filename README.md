@@ -19,6 +19,8 @@ VACNET/
 ├── README.md
 ├── requirements.txt
 ├── main.py
+├── install.bat
+├── uninstall.bat
 ├── app/
 │   ├── __init__.py
 │   ├── bot.py
@@ -31,12 +33,21 @@ VACNET/
 ├── logs/
 │   └── .gitkeep
 ├── scripts/
-│   ├── start_bot.bat
-│   └── start_supervisor.bat
+│   ├── run_bot.bat
+│   └── run_script.bat
+├── exes/
+│   └── script.py
 ├── tests/
 │   └── test_config.py
 └── .venv/
 ```
+
+## Batch scripts
+
+- `install.bat` — clones or updates the GitHub checkout, creates `.venv`, preserves an existing `.env`, installs dependencies, and registers `VACNET Bot` in Task Scheduler to run at Windows startup. Run it as Administrator. You can optionally pass a repository URL as its first argument.
+- `uninstall.bat` — asks for confirmation, removes the `VACNET Bot` scheduled task, and removes the complete VACNET installation directory, including `.env`, `.venv`, logs, and the Git checkout.
+- `scripts\run_bot.bat` — starts the supervisor through the virtual environment. It is called by the scheduled task and uses the hidden `pythonw.exe` when available.
+- `exes\script.py` — the bot-invoked script entry point. It currently prints `hello` in a visible command window and is the file to replace later with the Immich/image-server command.
 
 ## Quick start on Windows
 
@@ -63,7 +74,13 @@ Update the following keys in `.env`:
 - `GIT_BRANCH`
 - `LOG_LEVEL`
 
-4. Start the persistent supervisor:
+4. Or use the root installer, which performs the environment and dependency setup:
+
+```bat
+install.bat
+```
+
+5. Start the persistent supervisor:
 
 ```powershell
 python main.py
@@ -120,4 +137,4 @@ Logs are written to `logs/vacnet.log` and include command execution, updates, re
 
 ## Future extension
 
-The `/execute` command is intentionally minimal: it only opens a Windows console and prints `hello`. You can later replace that implementation with your real Immich or image-server startup logic without changing the rest of the architecture.
+The `/execute` command is intentionally minimal: it invokes `exes\script.py` in a visible `cmd.exe` window, which currently prints `hello`. Replace that Python script later with your real Immich or image-server startup logic without changing the Discord command architecture.

@@ -11,7 +11,6 @@ import discord
 from discord import app_commands
 
 from app.config import Settings
-from app.executor import open_cmd_with_hello
 from app.git_manager import GitManager
 from app.logger_setup import setup_logger
 from app.update_manager import UpdateManager
@@ -24,7 +23,18 @@ class VacnetBot(discord.Client):
         super().__init__(intents=intents)
         self.tree = app_commands.CommandTree(self)
         self.settings = settings
-        self.logger = setup_logger("vacnet.bot", level=getattr(logging, settings.log_level.upper(), logging.INFO))
+        self.logger = setup_logger(
+            "vacnet.bot",
+            level=getattr(logging, settings.log_level.upper(), logging.INFO),
+            client=self,
+            discord_channel_id=settings.bot_log_channel_id,
+        )
+        self.script_logger = setup_logger(
+            "vacnet.script",
+            level=getattr(logging, settings.log_level.upper(), logging.INFO),
+            client=self,
+            discord_channel_id=settings.script_log_channel_id,
+        )
         self.git = GitManager(ROOT_DIR, self.logger)
         self.update_manager = UpdateManager(ROOT_DIR, self.logger, settings)
 
@@ -60,14 +70,21 @@ async def status_command(interaction: discord.Interaction) -> None:
     )
 
 
-@client.tree.command(name="execute", description="Open a Windows CMD window and print hello.")
+@client.tree.command(name="execute", description="Run the temporary hello command in the background.")
 async def execute_command(interaction: discord.Interaction) -> None:
     client.logger.info("Received /execute command from %s", interaction.user.id)
+    started_at = __import__("datetime").datetime.utcnow().isoformat() + "Z"
+    client.script_logger.info("execution started | user=%s | timestamp=%s", interaction.user.id, started_at)
     try:
-        open_cmd_with_hello()
-        await interaction.response.send_message("Opened a Windows CMD window and printed: hello", ephemeral=True)
+        script_path = ROOT_DIR / "exes" / "script.py"
+        subprocess.Popen([sys.executable, str(script_path)], cwd=str(ROOT_DIR))
+        completed_at = __import__("datetime").datetime.utcnow().isoformat() + "Z"
+        client.script_logger.info("execution completed | user=%s | timestamp=%s | status=success", interaction.user.id, completed_at)
+        await interaction.response.send_message("Execution started in the background and completed successfully.", ephemeral=True)
     except Exception as exc:
+        failed_at = __import__("datetime").datetime.utcnow().isoformat() + "Z"
         client.logger.exception("Execute command failed: %s", exc)
+        client.script_logger.exception("execution failed | user=%s | timestamp=%s | error=%s", interaction.user.id, failed_at, exc)
         await interaction.response.send_message(f"Execution failed: {exc}", ephemeral=True)
 
 
