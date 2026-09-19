@@ -43,7 +43,7 @@ if exist "%INSTALL_DIR%\.git\HEAD" (
     pushd "%INSTALL_DIR%"
     git fetch origin main
     if errorlevel 1 goto :install_failed
-    git pull --ff-only origin main
+    git checkout -B main origin/main --force
     if errorlevel 1 goto :install_failed
 ) else if exist "%INSTALL_DIR%\install.bat" (
     echo [1/4] Bootstrapping VACNET in the current installer folder...
@@ -55,7 +55,7 @@ if exist "%INSTALL_DIR%\.git\HEAD" (
     if errorlevel 1 goto :install_failed
     git fetch origin main
     if errorlevel 1 goto :install_failed
-    git checkout -B main origin/main
+    git checkout -B main origin/main --force
     if errorlevel 1 goto :install_failed
 ) else (
     set "INSTALL_DIR=%USERPROFILE%\VACNET"
