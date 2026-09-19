@@ -151,3 +151,5 @@ Script updates are restricted to administrator IDs and HTTPS URLs. The downloade
 ## Future extension
 
 The `/execute` command is intentionally minimal: it invokes `exes\script.py` in a visible `cmd.exe` window, which currently prints `hello`. Replace that Python script later with your real Immich or image-server startup logic without changing the Discord command architecture.
+
+MHMH
