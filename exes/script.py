@@ -11,7 +11,9 @@ def main() -> None:
         subprocess.Popen(
             ["cmd.exe", "/k", "echo hello"],
             cwd=str(script_path.parent),
+            creationflags=subprocess.CREATE_NEW_CONSOLE,
         )
+        print("Opened a new command window.", flush=True)
         return
 
     print("hello")

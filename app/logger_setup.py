@@ -2,13 +2,49 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 
 import aiohttp
+import discord
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 LOG_DIR = ROOT_DIR / "logs"
 LOG_FILE = LOG_DIR / "vacnet.log"
+
+
+def log_embed(record: logging.LogRecord, message: str) -> dict:
+    level = record.levelname.upper()
+    colors = {
+        "DEBUG": 0x95A5A6,
+        "INFO": 0x3498DB,
+        "WARNING": 0xF1C40F,
+        "ERROR": 0xE67E22,
+        "CRITICAL": 0xE74C3C,
+    }
+    return {
+        "title": f"VACNET {level}",
+        "description": message[:4096],
+        "color": colors.get(level, 0x3498DB),
+        "timestamp": datetime.fromtimestamp(record.created, timezone.utc).isoformat(),
+        "fields": [
+            {"name": "Logger", "value": record.name, "inline": True},
+            {"name": "Level", "value": level, "inline": True},
+        ],
+    }
+
+
+def discord_embed(record: logging.LogRecord, message: str) -> discord.Embed:
+    payload = log_embed(record, message)
+    embed = discord.Embed(
+        title=payload["title"],
+        description=payload["description"],
+        color=payload["color"],
+        timestamp=datetime.fromtimestamp(record.created, timezone.utc),
+    )
+    for field in payload["fields"]:
+        embed.add_field(**field)
+    return embed
 
 
 class DiscordChannelHandler(logging.Handler):
@@ -26,11 +62,12 @@ class DiscordChannelHandler(logging.Handler):
             return
 
         message = self.format(record)
+        embed = discord_embed(record, message)
         try:
             loop = asyncio.get_running_loop()
-            loop.create_task(channel.send(message[:2000]))
+            loop.create_task(channel.send(embed=embed))
         except RuntimeError:
-            asyncio.run(channel.send(message[:2000]))
+            asyncio.run(channel.send(embed=embed))
 
 
 class DiscordWebhookHandler(logging.Handler):
@@ -38,11 +75,11 @@ class DiscordWebhookHandler(logging.Handler):
         super().__init__(level=level)
         self.webhook_url = webhook_url
 
-    async def _send(self, message: str) -> None:
+    async def _send(self, embed: dict) -> None:
         try:
             timeout = aiohttp.ClientTimeout(total=10)
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.post(self.webhook_url, json={"content": message[:2000]}) as response:
+                async with session.post(self.webhook_url, json={"embeds": [embed]}) as response:
                     if response.status >= 300:
                         logging.getLogger("vacnet.webhook").error(
                             "Discord webhook returned HTTP %s", response.status
@@ -51,12 +88,13 @@ class DiscordWebhookHandler(logging.Handler):
             logging.getLogger("vacnet.webhook").exception("Unable to send log to Discord webhook")
 
     def emit(self, record: logging.LogRecord) -> None:
+        embed = log_embed(record, self.format(record))
         try:
             loop = asyncio.get_running_loop()
-            loop.create_task(self._send(self.format(record)))
+            loop.create_task(self._send(embed))
         except RuntimeError:
             try:
-                asyncio.run(self._send(self.format(record)))
+                asyncio.run(self._send(embed))
             except RuntimeError:
                 return
 

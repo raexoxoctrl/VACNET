@@ -132,7 +132,7 @@ This gives you a practical rollback path without risking a broken update loop.
 
 ## Logging
 
-Logs are written to `logs/vacnet.log` and include command execution, updates, restarts, Git operations, and errors. When `DISCORD_WEBHOOK_URL` is set, the same entries are also sent to the webhook. Existing channel logging remains available through `BOT_LOG_CHANNEL_ID` and `SCRIPT_LOG_CHANNEL_ID`.
+Logs are written to `logs/vacnet.log` and include command execution, updates, restarts, Git operations, and errors. When `DISCORD_WEBHOOK_URL` is set, the same entries are also sent to the webhook as severity-colored embeds with the logger name and timestamp. Existing channel logging remains available through `BOT_LOG_CHANNEL_ID` and `SCRIPT_LOG_CHANNEL_ID`, using the same embed format.
 
 Script updates are restricted to administrator IDs and HTTPS URLs. The downloaded file must compile as Python before it replaces the current script. The repository update is intentionally destructive: it resets tracked files to the configured remote branch and removes non-ignored untracked files before reinstalling dependencies. Ignored runtime files such as `.env`, `.venv`, and logs are preserved.
 
