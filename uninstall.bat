@@ -53,9 +53,12 @@ if errorlevel 1 (
     echo [OK] Startup task stopped and removed.
 )
 
+echo [INFO] Stopping VACNET tunnel processes...
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { $_.Name -ieq 'cloudflared.exe' -and $_.CommandLine -like '*127.0.0.1:8765*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
+
 echo [2/2] Removing installation files...
 set "VACNET_REMOVE_PATH=%INSTALL_DIR%"
-set "VACNET_UNINSTALL_COMMAND=$path = $env:VACNET_REMOVE_PATH; Set-Location $env:TEMP; $deadline = (Get-Date).AddSeconds(30); while ((Test-Path -LiteralPath $path) -and (Get-Date) -lt $deadline) { Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $PID -and $_.ExecutablePath -and $_.ExecutablePath -match 'python(w)?\.exe$' -and $_.CommandLine -like ('*' + $path + '*') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; try { Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction Stop } catch { Start-Sleep -Milliseconds 500 } }"
+set "VACNET_UNINSTALL_COMMAND=$path = $env:VACNET_REMOVE_PATH; Set-Location $env:TEMP; $deadline = (Get-Date).AddSeconds(45); while ((Test-Path -LiteralPath $path) -and (Get-Date) -lt $deadline) { Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $PID -and (( $_.ExecutablePath -and $_.ExecutablePath -match 'python(w)?\.exe$' -and $_.CommandLine -like ('*' + $path + '*')) -or ($_.Name -ieq 'cloudflared.exe' -and $_.CommandLine -like '*127.0.0.1:8765*')) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; try { Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction Stop } catch { Start-Sleep -Milliseconds 500 } }"
 start "" /b powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "%VACNET_UNINSTALL_COMMAND%"
 echo.
 echo ============================================================

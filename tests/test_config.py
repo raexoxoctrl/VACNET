@@ -12,6 +12,7 @@ class TestConfig(unittest.TestCase):
             "ALLOWED_USER_IDS": "1,2,3",
             "GIT_BRANCH": "",
             "LOG_LEVEL": "",
+            "DASHBOARD_AUTH_TOKEN": "dashboard-test-token",
         }
         for key, value in original.items():
             import os

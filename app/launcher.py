@@ -35,3 +35,16 @@ class Launcher:
             env=final_env,
             creationflags=creation_flags,
         )
+
+    def start_module(self, module: str, *, name: str, env: dict | None = None) -> subprocess.Popen:
+        self.logger.info("Launching %s: %s -m %s", name, sys.executable, module)
+        final_env = os.environ.copy()
+        if env:
+            final_env.update(env)
+        creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
+        return subprocess.Popen(
+            [sys.executable, "-m", module],
+            cwd=str(self.repo_root),
+            env=final_env,
+            creationflags=creation_flags,
+        )

@@ -11,7 +11,9 @@ echo This installer will:
 echo   [1] Download or update VACNET from GitHub
 echo   [2] Create the Python virtual environment
 echo   [3] Install Python dependencies
-echo   [4] Register VACNET to start with Windows
+echo   [4] Install Cloudflare cloudflared
+echo   [5] Configure the authenticated dashboard
+echo   [6] Register VACNET to start with Windows
 echo.
 echo.
 
@@ -73,7 +75,7 @@ if exist "%INSTALL_DIR%\.git\HEAD" (
 
 if not exist ".env" (
     copy /Y ".env.example" ".env" >nul
-    echo [INFO] Created .env from .env.example. Fill in your Discord token and channel IDs.
+    echo [INFO] Created .env from .env.example.
 ) else (
     echo [INFO] Existing .env preserved.
 )
@@ -90,7 +92,24 @@ if errorlevel 1 goto :install_failed
 call ".venv\Scripts\python.exe" -m pip install -r requirements.txt
 if errorlevel 1 goto :install_failed
 
-echo [4/4] Registering VACNET to start with Windows...
+echo [4/6] Installing Cloudflare cloudflared...
+where cloudflared >nul 2>&1
+if errorlevel 1 (
+    where winget >nul 2>&1
+    if errorlevel 1 (
+        echo [ERROR] cloudflared is missing and winget is unavailable.
+        echo         Install cloudflared manually, then run this installer again.
+        goto :install_failed
+    )
+    winget install --id Cloudflare.cloudflared -e --accept-source-agreements --accept-package-agreements
+    if errorlevel 1 goto :install_failed
+)
+
+echo [5/6] Configuring dashboard authentication...
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$envPath = Join-Path '%INSTALL_DIR%' '.env'; $text = Get-Content -LiteralPath $envPath -Raw; if ($text -match '(?m)^DASHBOARD_AUTH_TOKEN=(replace_with_|\s*$)') { $bytes = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes); $token = [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+','-').Replace('/','_'); $text = [regex]::Replace($text, '(?m)^DASHBOARD_AUTH_TOKEN=.*$', ('DASHBOARD_AUTH_TOKEN=' + $token)); Set-Content -LiteralPath $envPath -Value $text -Encoding UTF8 }"
+if errorlevel 1 goto :install_failed
+
+echo [6/6] Registering VACNET to start with Windows...
 set "TASK_NAME=VACNET Bot"
 set "BOT_RUNNER=%INSTALL_DIR%\scripts\run_bot.bat"
 schtasks /Create /TN "%TASK_NAME%" /TR "\"%BOT_RUNNER%\"" /SC ONSTART /RU SYSTEM /RL HIGHEST /F >nul

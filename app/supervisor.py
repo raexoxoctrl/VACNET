@@ -24,10 +24,10 @@ class Supervisor:
         self.logger = setup_logger(
             "vacnet.supervisor",
             level=getattr(__import__("logging"), settings.log_level.upper(), __import__("logging").INFO),
-            discord_webhook_url=settings.discord_webhook_url,
         )
         self.launcher = Launcher(self.repo_root, self.logger)
         self.bot_process: subprocess.Popen | None = None
+        self.dashboard_process: subprocess.Popen | None = None
         self._lock = threading.Lock()
 
     def start_bot_process(self) -> subprocess.Popen:
@@ -43,6 +43,15 @@ class Supervisor:
             )
             return self.bot_process
 
+    def start_dashboard_process(self) -> subprocess.Popen:
+        with self._lock:
+            if self.dashboard_process and self.dashboard_process.poll() is None:
+                self.logger.info("Dashboard process already running.")
+                return self.dashboard_process
+            self.logger.info("Starting authenticated dashboard from %s", self.repo_root)
+            self.dashboard_process = self.launcher.start_module("app.dashboard", name="VACNET Dashboard")
+            return self.dashboard_process
+
     def stop_bot_process(self) -> None:
         with self._lock:
             if self.bot_process is None:
@@ -57,6 +66,19 @@ class Supervisor:
                     self.bot_process.kill()
             self.bot_process = None
 
+    def stop_dashboard_process(self) -> None:
+        with self._lock:
+            if self.dashboard_process is None:
+                return
+            if self.dashboard_process.poll() is None:
+                self.logger.info("Stopping dashboard process.")
+                self.dashboard_process.terminate()
+                try:
+                    self.dashboard_process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    self.dashboard_process.kill()
+            self.dashboard_process = None
+
     def restart(self) -> None:
         self.logger.info("Restart requested.")
         self.stop_bot_process()
@@ -68,6 +90,8 @@ class Supervisor:
         return {
             "running": running,
             "pid": self.bot_process.pid if self.bot_process else None,
+            "dashboard_running": self.dashboard_process is not None and self.dashboard_process.poll() is None,
+            "dashboard_pid": self.dashboard_process.pid if self.dashboard_process else None,
         }
 
 
@@ -81,6 +105,7 @@ def main() -> None:
 
     try:
         SHUTDOWN_MARKER.unlink(missing_ok=True)
+        supervisor.start_dashboard_process()
         supervisor.start_bot_process()
         while True:
             time.sleep(5)
@@ -88,13 +113,18 @@ def main() -> None:
                 logger.info("Shutdown requested by Discord command.")
                 SHUTDOWN_MARKER.unlink(missing_ok=True)
                 supervisor.stop_bot_process()
+                supervisor.stop_dashboard_process()
                 return
+            if supervisor.dashboard_process and supervisor.dashboard_process.poll() is not None:
+                logger.warning("Dashboard process exited unexpectedly. Restarting.")
+                supervisor.start_dashboard_process()
             if supervisor.bot_process and supervisor.bot_process.poll() is not None:
                 logger.warning("Bot process exited unexpectedly. Restarting.")
                 supervisor.start_bot_process()
     except KeyboardInterrupt:
         logger.info("Supervisor stopping on keyboard interrupt.")
         supervisor.stop_bot_process()
+        supervisor.stop_dashboard_process()
         raise
 
 

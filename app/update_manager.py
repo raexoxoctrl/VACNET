@@ -41,7 +41,7 @@ class UpdateManager:
             raise RuntimeError(f"Dependency installation failed:\n{result.stdout}\n{result.stderr}")
 
     def update_and_restart(self) -> dict:
-        self.logger.info("Starting update process.")
+        self.logger.info("event=update_started", extra={"discord_notify": True})
         backup_name = None
         original_branch = self.git.get_current_branch()
         try:
@@ -52,10 +52,11 @@ class UpdateManager:
             self.git.pull_latest(self.settings.git_branch)
             self.install_requirements()
 
-            self.logger.info("Update succeeded. The supervisor will restart the bot after the process exits.")
-            return {"status": "ok", "backup": backup_name, "commit": self.git.get_current_commit()}
+            commit = self.git.get_current_commit()
+            self.logger.info("event=update_succeeded commit=%s", commit, extra={"discord_notify": True})
+            return {"status": "ok", "backup": backup_name, "commit": commit}
         except Exception as exc:
-            self.logger.exception("Update failed: %s", exc)
+            self.logger.exception("event=update_failed error=%s", exc, extra={"discord_notify": True})
             if backup_name:
                 try:
                     self.logger.warning("Attempting rollback to backup: %s", backup_name)
