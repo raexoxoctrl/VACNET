@@ -3,6 +3,14 @@ setlocal EnableExtensions
 title VACNET Uninstaller
 color 0C
 
+rem Task Scheduler and process termination require administrator rights.
+fltmc >nul 2>&1
+if errorlevel 1 (
+    echo [INFO] Administrator access is required. Requesting elevation...
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath '%ComSpec%' -ArgumentList '/c ""%~f0""' -WorkingDirectory '%~dp0' -Verb RunAs"
+    exit /b 0
+)
+
 echo ============================================================
 echo                    VACNET UNINSTALLER
 echo ============================================================
@@ -36,16 +44,21 @@ if errorlevel 2 (
 )
 
 echo.
-echo [1/2] Removing startup task...
+echo [1/2] Stopping and removing startup task...
+schtasks /End /TN "VACNET Bot" /F >nul 2>&1
 schtasks /Delete /TN "VACNET Bot" /F >nul 2>&1
-if errorlevel 1 echo [INFO] Task was not registered or was already removed.
-if not errorlevel 1 echo [OK] Startup task removed.
+if errorlevel 1 (
+    echo [INFO] Task was not registered or was already removed.
+) else (
+    echo [OK] Startup task stopped and removed.
+)
 
 echo [2/2] Removing installation files...
-set "REMOVE_PATH=%INSTALL_DIR%"
-start "" /b powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$path = '%REMOVE_PATH%'; Set-Location $env:TEMP; Start-Sleep -Seconds 1; if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force }"
+set "VACNET_REMOVE_PATH=%INSTALL_DIR%"
+set "VACNET_UNINSTALL_COMMAND=$path = $env:VACNET_REMOVE_PATH; Set-Location $env:TEMP; $deadline = (Get-Date).AddSeconds(30); while ((Test-Path -LiteralPath $path) -and (Get-Date) -lt $deadline) { Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $PID -and $_.ExecutablePath -and $_.ExecutablePath -match 'python(w)?\.exe$' -and $_.CommandLine -like ('*' + $path + '*') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; try { Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction Stop } catch { Start-Sleep -Milliseconds 500 } }"
+start "" /b powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "%VACNET_UNINSTALL_COMMAND%"
 echo.
 echo ============================================================
-echo UNINSTALL STARTED - this window will close automatically.
+echo UNINSTALL STARTED - VACNET will be stopped and removed shortly.
 echo ============================================================
 exit /b 0

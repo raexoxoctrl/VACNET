@@ -45,7 +45,7 @@ VACNET/
 ## Batch scripts
 
 - `install.bat` — clones or updates the GitHub checkout, creates `.venv`, preserves an existing `.env`, installs dependencies, and registers `VACNET Bot` in Task Scheduler to run at Windows startup. Run it as Administrator. You can optionally pass a repository URL as its first argument.
-- `uninstall.bat` — asks for confirmation, removes the `VACNET Bot` scheduled task, and removes the complete VACNET installation directory, including `.env`, `.venv`, logs, and the Git checkout.
+- `uninstall.bat` — requests administrator access, asks for confirmation, stops and removes the `VACNET Bot` scheduled task, terminates VACNET processes, and retries removal of the complete installation directory, including `.env`, `.venv`, logs, and the Git checkout.
 - `scripts\run_bot.bat` — starts the supervisor through the virtual environment. It is called by the scheduled task and uses the hidden `pythonw.exe` when available.
 - `exes\script.py` — the bot-invoked script entry point. It currently prints `hello` in a visible command window and is the file to replace later with the Immich/image-server command.
 
