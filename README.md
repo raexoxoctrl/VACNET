@@ -34,7 +34,8 @@ VACNET/
 │   └── .gitkeep
 ├── scripts/
 │   ├── run_bot.bat
-│   └── run_script.bat
+│   ├── run_script.bat
+│   └── run_dashboard.bat
 ├── exes/
 │   └── script.py
 ├── tests/
@@ -47,6 +48,7 @@ VACNET/
 - `install.bat` — clones or updates the GitHub checkout, creates `.venv`, preserves an existing `.env`, installs dependencies, and registers `VACNET Bot` in Task Scheduler to run at Windows startup. Run it as Administrator. You can optionally pass a repository URL as its first argument.
 - `uninstall.bat` — requests administrator access, asks for confirmation, stops and removes the `VACNET Bot` scheduled task, terminates VACNET processes, and retries removal of the complete installation directory, including `.env`, `.venv`, logs, and the Git checkout.
 - `scripts\run_bot.bat` — starts the supervisor through the virtual environment. It is called by the scheduled task and uses the hidden `pythonw.exe` when available.
+- `scripts\run_dashboard.bat` — starts the development dashboard at `http://127.0.0.1:8765`.
 - `exes\script.py` — the bot-invoked script entry point. It currently prints `hello` in a visible command window and is the file to replace later with the Immich/image-server command.
 
 ## Quick start on Windows
@@ -88,6 +90,10 @@ python main.py
 ```
 
 The supervisor will launch the Discord bot and keep it running.
+
+## Local development dashboard
+
+Run `scripts\run_dashboard.bat` from the project folder for a localhost-only control panel. It provides live process status, recent logs, and Start, Stop, Restart, Execute, and Update controls. The dashboard is intended for development only, binds to `127.0.0.1`, and should be run instead of `main.py` when using its process controls.
 
 ## GitHub repository setup
 

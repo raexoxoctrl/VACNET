@@ -53,21 +53,26 @@ class DiscordChannelHandler(logging.Handler):
         self.client = client
         self.channel_id = int(channel_id)
 
+    async def _send(self, embed: discord.Embed) -> None:
+        try:
+            channel = self.client.get_channel(self.channel_id)
+            if channel is not None:
+                await channel.send(embed=embed)
+        except Exception:
+            logging.getLogger("vacnet.discord").exception("Unable to send log to Discord channel")
+
     def emit(self, record: logging.LogRecord) -> None:
         if self.client is None or not self.client.is_ready():
             return
 
-        channel = self.client.get_channel(self.channel_id)
-        if channel is None:
-            return
-
-        message = self.format(record)
-        embed = discord_embed(record, message)
+        embed = discord_embed(record, self.format(record))
         try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(channel.send(embed=embed))
-        except RuntimeError:
-            asyncio.run(channel.send(embed=embed))
+            target_loop = self.client.loop
+            if target_loop.is_closed() or not target_loop.is_running():
+                return
+            target_loop.call_soon_threadsafe(asyncio.create_task, self._send(embed))
+        except Exception:
+            return
 
 
 class DiscordWebhookHandler(logging.Handler):
